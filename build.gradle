@@ -1,0 +1,23 @@
+plugins {
+    id 'maven-publish'
+}
+
+group = "com.github.REGALITECH"
+version = "0.0.0"
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = "leeep-android-sdk"
+            artifact(file("LeeepAndroidSdk-release.aar")) {
+                builtBy tasks.build
+            }
+            pom {
+                name.set("LeeepSDK")
+                description.set("LEEEP SDK for Android")
+                url.set("https://github.com/REGALITECH/leeep-android-sdk")
+            }
+        }
+    }
+}
+
