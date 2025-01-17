@@ -1,0 +1,8 @@
+jdk:
+  - openjdk8
+
+build:
+  commands:
+    - "./gradlew clean"
+    - "./gradlew publish"
+
