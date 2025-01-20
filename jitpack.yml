@@ -1,8 +1,7 @@
 jdk:
-  - openjdk17
-
-build:
-  commands:
-    - "./gradlew clean"
-    - "./gradlew publish"
+  - openjdk9
+install:
+  - echo "custom install command (jitpack.yml)"
+  - ./gradlew clean
+  - ./gradlew publish
 
