@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.github.REGALITECH"
-version = "0.0.10"
+// version = "0.0.11"
 
 publishing {
     publications {
