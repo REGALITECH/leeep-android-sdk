@@ -4,15 +4,10 @@ plugins {
 
 group = "com.github.REGALITECH"
 
-dependencies {
-    api(libs.kotlinx.serialization.json)
-    api(libs.androidx.runtime.android)
-    api(libs.androidx.ui.android)
-}
-
 publishing {
     publications {
         create<MavenPublication>("aarPublication") {
+            from(components["release"])
             artifactId = "leeep-android-sdk"
             artifact(file("LeeepAndroidSdk.aar"))
             pom {
