@@ -14,6 +14,15 @@ publishing {
                 name.set("LeeepSDK")
                 description.set("LEEEP SDK for Android")
                 url.set("https://github.com/REGALITECH/leeep-android-sdk")
+                withXml {
+                    asNode().appendNode("dependencies").apply {
+                        val dep = appendNode("dependency")
+                        dep.appendNode("groupId", "org.jetbrains.kotlinx")
+                        dep.appendNode("artifactId", "kotlinx-serialization-json")
+                        dep.appendNode("version", "1.5.0")
+                        dep.appendNode("scope", "compile")
+                    }
+                }
             }
         }
     }
