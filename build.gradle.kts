@@ -3,7 +3,12 @@ plugins {
 }
 
 group = "com.github.REGALITECH"
-// version = "0.0.11"
+
+dependencies {
+    api(libs.kotlinx.serialization.json)
+    api(libs.androidx.runtime.android)
+    api(libs.androidx.ui.android)
+}
 
 publishing {
     publications {
