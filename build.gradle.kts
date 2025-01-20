@@ -7,7 +7,6 @@ group = "com.github.REGALITECH"
 publishing {
     publications {
         create<MavenPublication>("aarPublication") {
-            from(components["release"])
             artifactId = "leeep-android-sdk"
             artifact(file("LeeepAndroidSdk.aar"))
             pom {
