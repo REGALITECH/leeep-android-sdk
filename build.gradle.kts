@@ -18,7 +18,7 @@ publishing {
                         val dep = appendNode("dependency")
                         dep.appendNode("groupId", "org.jetbrains.kotlinx")
                         dep.appendNode("artifactId", "kotlinx-serialization-json")
-                        dep.appendNode("version", "1.5.0")
+                        dep.appendNode("version", "1.7.3")
                         dep.appendNode("scope", "compile")
                     }
                 }
