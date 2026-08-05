@@ -14,16 +14,25 @@ publishing {
                 description.set("LEEEP SDK for Android")
                 url.set("https://github.com/REGALITECH/leeep-android-sdk")
                 withXml {
+                    // AARを手書きPOMで配布しているため、利用側へ推移的に渡す依存はここが唯一の宣言箇所。
+                    // 宣言漏れがあると、利用側は該当機能を呼んだ時点でNoClassDefFoundErrorになる。
+                    // バージョンはSDK本体がFirebase BoM 34.16.0で解決している値と揃えること。
                     asNode().appendNode("dependencies").apply {
-                        val dep = appendNode("dependency")
-                        dep.appendNode("groupId", "org.jetbrains.kotlinx")
-                        dep.appendNode("artifactId", "kotlinx-serialization-json")
-                        dep.appendNode("version", "1.7.3")
-                        dep.appendNode("scope", "compile")
+                        fun dependency(groupId: String, artifactId: String, version: String) {
+                            appendNode("dependency").apply {
+                                appendNode("groupId", groupId)
+                                appendNode("artifactId", artifactId)
+                                appendNode("version", version)
+                                appendNode("scope", "compile")
+                            }
+                        }
+
+                        dependency("org.jetbrains.kotlinx", "kotlinx-serialization-json", "1.7.3")
+                        dependency("com.google.firebase", "firebase-messaging", "25.1.1")
+                        dependency("com.google.firebase", "firebase-installations", "19.1.2")
                     }
                 }
             }
         }
     }
 }
-
