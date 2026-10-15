@@ -1,0 +1,13 @@
+LEEEP Android SDK
+Copyright (c) 2024–2026 株式会社REGALI. All rights reserved.
+
+本SDKは株式会社REGALIが提供する商用ソフトウェアです。
+本SDKの利用および本SDKを組み込んだアプリケーションの配布には、
+株式会社REGALIとの契約および適用されるLEEEP利用規約が適用されます。
+
+LEEEP利用規約:
+https://app.leeep.jp/v2/terms/leeep
+
+本書は、既存の契約または利用規約を変更するものではありません。
+本SDKとともに利用される第三者ソフトウェアには、それぞれのライセンスが
+適用されます。詳細はTHIRD_PARTY_NOTICES.txtを参照してください。
