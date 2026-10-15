@@ -19,7 +19,9 @@ publishing {
                 licenses {
                     license {
                         name.set("LEEEP SDK 商用ライセンス")
-                        val licenseRef = project.version.toString().takeUnless { it == "unspecified" } ?: "main"
+                        // JitPackのビルド対象コミットを参照し、公開後の文面を固定する。
+                        val licenseRef = providers.environmentVariable("GIT_COMMIT").orNull
+                            ?.takeIf { it.isNotBlank() } ?: "main"
                         url.set("https://raw.githubusercontent.com/REGALITECH/leeep-android-sdk/$licenseRef/LICENSE")
                         distribution.set("repo")
                     }

@@ -476,6 +476,9 @@ JavaScript Cookie (js-cookie) 2.2.1
 ライセンス: MIT
 ライセンス原文: https://github.com/js-cookie/js-cookie/blob/v2.2.1/LICENSE
 
+ソース・配布JavaScriptの著作権表示:
+Copyright 2006, 2015 Klaus Hartl & Fagner Brack
+
 MIT License
 
 Copyright (c) 2018 Copyright 2018 Klaus Hartl, Fagner Brack, GitHub Contributors
