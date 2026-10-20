@@ -44,10 +44,15 @@ updates:
       interval: weekly
     allow:
       - dependency-name: "com.github.REGALITECH:leeep-android-sdk"
+    cooldown:
+      default-days: 3
+      exclude:
+        - "com.github.REGALITECH:leeep-android-sdk"
 ```
 
 `directory` は利用アプリの Gradle プロジェクトの場所に合わせてください。既存の Dependabot 設定があれば、その `updates` に統合し、同じ ecosystem/directory の設定を重複させないでください。既に他の依存も更新している場合、この `allow` で対象を SDK だけに絞らないよう既存の方針を維持してください。
-SDK 配布元に設定するだけでは利用アプリに更新 PR は届きません。Gradle の JitPack 設定と、対象バージョンが JitPack の Maven メタデータに反映されていることが必要です。PR の作成時期はチェックのスケジュールや cooldown 設定にも従います。自動マージは設定せず、変更内容を確認してから更新してください。
+JitPack の版には公開日時がなく、Dependabot の標準の 3 日間の cooldown では更新候補から除外される場合があります。上の例は `cooldown.exclude` でこの SDK だけを待機対象から外します。既存設定へ統合するときは、他の依存向けの日数や例外を維持し、SDK の除外だけを追加してください。[cooldown の公式仕様](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown)も参照してください。
+SDK 配布元に設定するだけでは利用アプリに更新 PR は届きません。利用アプリの Gradle に JitPack を設定してください。Dependabot は Maven メタデータ以外のバージョン一覧も調べるため、メタデータ未反映・GitHub Release 未公開のタグが候補になる場合があります。PR の作成時期はチェックのスケジュールにも従います。自動マージは設定せず、Release の変更内容を読み、対象版が配布済みであることを確認してから更新してください。
 
 参考: [GitHub の通知設定](https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications)、[Dependabot 設定](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference)、[JitPack の導入](https://docs.jitpack.io/intro/)。
 
