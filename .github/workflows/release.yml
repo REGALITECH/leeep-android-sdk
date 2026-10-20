@@ -39,6 +39,10 @@ jobs:
 
   publish:
     needs: validate
+    concurrency:
+      group: sdk-release-publish
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

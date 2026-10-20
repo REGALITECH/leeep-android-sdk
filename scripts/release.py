@@ -53,18 +53,43 @@ def resolve_tag(tag):
 
 
 def assert_no_release(tag):
-    request = urllib.request.Request(
-        f"https://api.github.com/repos/{REPOSITORY}/releases/tags/{tag}",
-        headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {os.environ['GH_TOKEN']}"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30):
-            pass
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return
-        raise
-    raise ValueError("A release already exists for this tag; it will not be edited")
+    releases = []
+    # The tag endpoint only finds published releases. The publish job repeats
+    # this paginated lookup with contents:write so drafts are visible too.
+    for page in range(1, 101):
+        request = urllib.request.Request(
+            f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=100&page={page}",
+            headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {os.environ['GH_TOKEN']}"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            entries = json.load(response)
+        if not isinstance(entries, list) or len(entries) > 100:
+            raise ValueError("Unexpected GitHub releases response")
+        for entry in entries:
+            if (not isinstance(entry, dict) or not isinstance(entry.get("tag_name"), str)
+                    or not entry["tag_name"] or type(entry.get("draft")) is not bool
+                    or type(entry.get("prerelease")) is not bool):
+                raise ValueError("Unexpected GitHub release fields")
+            if entry["tag_name"] == tag:
+                raise ValueError("A release already exists for this tag; it will not be edited")
+        releases.extend(entries)
+        if len(entries) < 100:
+            return releases
+    raise ValueError("GitHub release pagination exceeded the safety limit")
+
+
+def is_latest(tag, releases):
+    version = tuple(map(int, validate_tag(tag).split(".")))
+    for entry in releases:
+        if entry["draft"] or entry["prerelease"]:
+            continue
+        try:
+            existing = tuple(map(int, validate_tag(entry["tag_name"]).split(".")))
+        except ValueError:
+            continue
+        if existing >= version:
+            return False
+    return True
 
 
 def download(url, timeout=60):
@@ -72,7 +97,19 @@ def download(url, timeout=60):
         return response.read()
 
 
-def validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar, licenses):
+def pom_dependencies(pom):
+    dependencies = ET.fromstring(pom).findall("{http://maven.apache.org/POM/4.0.0}dependencies")
+    if len(dependencies) != 1:
+        raise ValueError("POM must contain one dependencies element")
+
+    def normalized(node):
+        return (node.tag, (node.text or "").strip(), tuple(sorted(node.attrib.items())),
+                tuple(sorted(normalized(child) for child in node)))
+
+    return normalized(dependencies[0])
+
+
+def validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar, licenses, expected_pom):
     if status.get("status") != "ok" or status.get("commit") != commit:
         raise ValueError("JitPack build must succeed at the resolved tag commit")
     root = ET.fromstring(pom)
@@ -80,6 +117,8 @@ def validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar,
     for field, expected in (("groupId", GROUP), ("artifactId", ARTIFACT), ("version", tag), ("packaging", "aar")):
         if root.findtext(f"m:{field}", namespaces=ns) != expected:
             raise ValueError(f"Unexpected published POM {field}")
+    if pom_dependencies(pom) != pom_dependencies(expected_pom):
+        raise ValueError("Published POM dependencies differ from the resolved tag")
     if tag not in [node.text for node in ET.fromstring(metadata).findall("./versioning/versions/version")]:
         raise ValueError("Version is not discoverable in JitPack Maven metadata yet")
     if hashlib.sha256(aar).digest() != hashlib.sha256(expected_aar).digest():
@@ -94,6 +133,7 @@ def validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar,
 
 def verify_jitpack(tag, commit):
     expected_aar = git("show", f"{commit}:LeeepAndroidSdk.aar")
+    expected_pom = git("show", f"{commit}:sdk-dependencies.pom")
     licenses = {name: git("show", f"{commit}:{name}") for name in ("LICENSE", "THIRD_PARTY_NOTICES.txt")}
     base = f"{MAVEN}/{tag}/{ARTIFACT}-{tag}"
     deadline = time.monotonic() + 12 * 60
@@ -112,7 +152,7 @@ def verify_jitpack(tag, commit):
             status = json.loads(fetch(f"https://jitpack.io/api/builds/{GROUP}/{ARTIFACT}/{tag}"))
             aar = fetch(base + ".aar")
             metadata = fetch(MAVEN + "/maven-metadata.xml")
-            validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar, licenses)
+            validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar, licenses, expected_pom)
             print(f"Verified {GROUP}:{ARTIFACT}:{tag} at {commit}")
             return
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError, ET.ParseError, zipfile.BadZipFile) as error:
@@ -131,7 +171,7 @@ def main():
     validate_tag(args.tag)
     if args.command != "verify-jitpack":
         notes = notes_path(args.tag)
-        assert_no_release(args.tag)
+        releases = assert_no_release(args.tag)
     commit = resolve_tag(args.tag)
     if args.command == "publish":
         if commit != args.expected_commit:
@@ -139,6 +179,7 @@ def main():
         subprocess.run([
             "gh", "release", "create", args.tag, "--repo", REPOSITORY,
             "--verify-tag", "--title", f"LEEEP Android SDK {args.tag}",
+            f"--latest={str(is_latest(args.tag, releases)).lower()}",
             "--notes-file", str(notes),
         ], check=True)
     else:
