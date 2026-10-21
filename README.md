@@ -16,16 +16,16 @@ dependencyResolutionManagement {
 ```
 
 利用するモジュールの `build.gradle.kts` に、固定したバージョンを指定します。
-以下は配布済みの 0.9.1 を使う例です。更新時は [Releases](https://github.com/REGALITECH/leeep-android-sdk/releases) の変更内容・移行手順を確認し、採用するバージョンへ変更してください。
+`x.y.z` には [Releases の Latest](https://github.com/REGALITECH/leeep-android-sdk/releases/latest) のバージョンを指定してください。
 
 ```kotlin
 dependencies {
-    implementation("com.github.REGALITECH:leeep-android-sdk:0.9.1")
+    implementation("com.github.REGALITECH:leeep-android-sdk:x.y.z")
 }
 ```
 
 Gradle Sync 後、アプリのビルド・初期化・タグ表示・注文計測を確認してください。
-[0.10.0 の変更内容と移行手順](releases/0.10.0.md)には新しい初期化 API と非推奨警告への対応を記載しています。リリースノートのファイルがあるだけでは配布確認・GitHub Release 公開済みを意味しません。
+更新時は [Releases](https://github.com/REGALITECH/leeep-android-sdk/releases) で、現在のバージョンから採用するバージョンまでの各版の変更内容・更新時の対応を確認してください。リポジトリの `releases/` にあるファイルは公開前の原稿を含むため、ファイルがあるだけでは配布確認・GitHub Release 公開済みを意味しません。
 
 ## 更新通知を受け取る
 
@@ -58,18 +58,7 @@ SDK 配布元に設定するだけでは利用アプリに更新 PR は届きま
 
 ## リリース担当者向け手順
 
-1. 内部リポジトリで SDK を検証・ビルドし、既存の `make all` で AAR・依存 POM・ライセンス文書を公開リポジトリへ反映します。
-2. 公開リポジトリに `releases/x.y.z.md` を作成します。先頭は `# x.y.z` とし、`## 変更内容` と `## 更新時の対応` に、そのバージョンの変更と必要な移行・確認事項を書きます。API の追加・非推奨・互換性への影響を含め、配布物と一緒に PR でレビューします。
-3. PR をマージ後、確認した公開コミットに `x.y.z` 形式のタグを付けて push します（`v` 接頭辞・プレリリース・先頭ゼロは使いません）。タグの push は配布開始と Release 公開を許可する操作です。
-4. **Actions → Publish release** の成功と [Releases](https://github.com/REGALITECH/leeep-android-sdk/releases) の内容を確認します。この workflow が GitHub Release を公開し、購読者への通知の起点になります。
-
-`Publish release` はタグの実在・変更履歴を確認し、JitPack の POM 取得によって必要ならビルドを開始します。最大 12 分間、ビルド成功と対象コミット、POM の座標・バージョンとタグにある依存定義との一致、AAR の完全一致と同梱ライセンス、Maven メタデータへのバージョン掲載を確認します。いずれかが確認できなければ Release を公開しません。検証ジョブは読取権限で動き、公開ジョブだけが `contents: write` を使います。
-
-以前から存在するタグ（workflow 導入前の 0.10.0 など）や検証失敗後の再試行は、**Actions → Publish release → Run workflow** で `main` を選び、`tag` にその既存タグを指定します。これは JitPack 配布確認と Release 公開を実行する操作です。workflow と変更履歴は実行時の `main` のコミットから取得し、AAR・文書はタグのコミットに固定して検証するので、旧タグを付け直す必要はありません。
-
-既存のタグ・公開済み Release は変更しません。公開ジョブで Release 一覧を全ページ確認し、同じタグの Release（draft を含む）があれば停止します。公開ジョブは順番に実行し、初回または公開済みの正式版（`x.y.z` 形式）より新しい場合だけ Latest に設定します。旧版の告知補完では Latest を変更しません。JitPack 障害やメタデータ反映待ちは状況を確認してから同じタグで再実行し、配布物の修正が必要な場合は新しいバージョンを作成してください。タグの強制更新・削除や公開済み AAR の差し替えは行いません。
-
-PR の `Release checks` はネットワークや公開を伴わないリリースゲートのテストだけを実行します。既に JitPack で配布済みの版を手元で確認する場合は `python3 scripts/release.py verify-jitpack 0.9.1` を使えます。このコマンドも未配布の版を指定すると JitPack ビルドを開始し得るため、公開承認のないバージョンには実行しないでください。
+SDK の配布と GitHub Release の公開手順は [RELEASING.md](RELEASING.md) にまとめています。
 
 ## ライセンス情報
 
