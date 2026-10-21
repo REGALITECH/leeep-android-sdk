@@ -131,11 +131,26 @@ def validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar,
                 raise ValueError(f"AAR license does not match the tag: {name}")
 
 
+class JitPackBuildFailed(RuntimeError):
+    pass
+
+
+def build_status(body, tag):
+    status = json.loads(body)
+    # JitPack keeps a failed build and never rebuilds it on later requests, so
+    # waiting cannot succeed. Stop with the log URL; the failed build has to be
+    # deleted on jitpack.io before retrying (see RELEASING.md).
+    if isinstance(status, dict) and status.get("status") == "Error":
+        raise JitPackBuildFailed(f"JitPack build failed; see {MAVEN}/{tag}/build.log")
+    return status
+
+
 def verify_jitpack(tag, commit):
     expected_aar = git("show", f"{commit}:LeeepAndroidSdk.aar")
     expected_pom = git("show", f"{commit}:sdk-dependencies.pom")
     licenses = {name: git("show", f"{commit}:{name}") for name in ("LICENSE", "THIRD_PARTY_NOTICES.txt")}
     base = f"{MAVEN}/{tag}/{ARTIFACT}-{tag}"
+    status_url = f"https://jitpack.io/api/builds/{GROUP}/{ARTIFACT}/{tag}"
     deadline = time.monotonic() + 12 * 60
     last_error = "JitPack not ready"
     # Requesting the POM can start a JitPack build. Only release preparation or
@@ -148,8 +163,14 @@ def verify_jitpack(tag, commit):
                     raise TimeoutError("JitPack verification timed out")
                 return download(url, timeout=min(60, remaining))
 
-            pom = fetch(base + ".pom")
-            status = json.loads(fetch(f"https://jitpack.io/api/builds/{GROUP}/{ARTIFACT}/{tag}"))
+            try:
+                pom = fetch(base + ".pom")
+            except urllib.error.HTTPError:
+                # A failed build answers the POM with 404. Stop if the build has
+                # already failed; otherwise keep waiting for it.
+                build_status(fetch(status_url), tag)
+                raise
+            status = build_status(fetch(status_url), tag)
             aar = fetch(base + ".aar")
             metadata = fetch(MAVEN + "/maven-metadata.xml")
             validate_distribution(tag, commit, status, pom, aar, metadata, expected_aar, licenses, expected_pom)

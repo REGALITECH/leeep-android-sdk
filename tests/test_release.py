@@ -160,6 +160,33 @@ class ReleaseGatesTest(unittest.TestCase):
             self.assertEqual(elapsed[0], 720)
             self.assertEqual(download.call_count, 24)
 
+    def test_failed_jitpack_build_stops_without_waiting(self):
+        not_found = urllib.error.HTTPError("url", 404, "Not Found", {}, io.BytesIO())
+        failed = json.dumps({"status": "Error", "commit": self.commit}).encode()
+        with not_found, patch.object(release, "git", return_value=b"unused"), \
+             patch.object(release, "download", side_effect=[not_found, failed]) as download, \
+             patch.object(release.time, "sleep") as sleep:
+            with self.assertRaisesRegex(release.JitPackBuildFailed, r"/0\.10\.0/build\.log"):
+                release.verify_jitpack("0.10.0", self.commit)
+            self.assertEqual(download.call_count, 2)
+            sleep.assert_not_called()
+
+    def test_unregistered_jitpack_build_keeps_waiting(self):
+        elapsed = [0]
+
+        def advance(seconds):
+            elapsed[0] += seconds
+
+        not_found = urllib.error.HTTPError("url", 404, "Not Found", {}, io.BytesIO())
+        with not_found, patch.object(release, "git", return_value=b"unused"), \
+             patch.object(release, "download", side_effect=not_found) as download, \
+             patch.object(release.time, "monotonic", side_effect=lambda: elapsed[0]), \
+             patch.object(release.time, "sleep", side_effect=advance), \
+             patch("builtins.print"):
+            with self.assertRaisesRegex(RuntimeError, "within 12 minutes"):
+                release.verify_jitpack("0.10.0", self.commit)
+            self.assertEqual(download.call_count, 48)
+
     def test_moved_tag_never_reaches_release_creation(self):
         with patch("sys.argv", ["release.py", "publish", "0.10.0", "b" * 40]), \
              patch.object(release, "assert_no_release", return_value=[]), \
