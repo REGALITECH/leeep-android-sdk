@@ -29,11 +29,21 @@ Gradle Sync 後、アプリのビルド・初期化・タグ表示・注文計�
 
 ## 更新通知を受け取る
 
-このリポジトリ右上の **Watch → Custom → Releases → Apply** を選択すると、GitHub Release の公開通知を購読できます。
-メールで受け取る場合は、GitHub 個人設定の **Notifications** で Watching のメール通知と受信先を確認してください。
-通知経路は各アカウントの設定に従います。タグの追加だけでは Release 通知にはなりません。
+### Release の通知メール
 
-利用アプリで更新 PR を受け取りたい場合は、そのアプリのリポジトリに `.github/dependabot.yml` を設定します。次はルートに Gradle プロジェクトがある場合の例です。
+次の設定をすると、GitHub Release が公開されたときに、変更内容と更新時の対応がメールで届きます。
+
+1. このリポジトリ右上の **Watch → Custom → Releases → Apply** を選択します。
+2. GitHub の[通知設定](https://github.com/settings/notifications)の **Watching** で、通知先（Notify me）に **Email** が含まれていることを確認します。
+   **On GitHub** だけの場合は GitHub 上の通知だけになり、メールは届きません。
+3. 同じ画面の **Default notifications email** が、受け取りたいメールアドレスになっていることを確認します。
+   組織ごとに送信先を変えている場合は、**Custom routing** の設定も確認してください。
+
+通知の届き方は各アカウントの設定に従います。タグの追加だけでは Release の通知にはなりません。
+
+### Dependabot の更新 PR
+
+利用アプリで更新 PR を受け取りたい場合は、そのアプリのリポジトリのデフォルトブランチに `.github/dependabot.yml` を設定します。次はルートに Gradle プロジェクトがある場合の例です。
 
 ```yaml
 version: 2
@@ -41,7 +51,7 @@ updates:
   - package-ecosystem: gradle
     directory: "/"
     schedule:
-      interval: weekly
+      interval: daily
     allow:
       - dependency-name: "com.github.REGALITECH:leeep-android-sdk"
     cooldown:
@@ -51,6 +61,7 @@ updates:
 ```
 
 `directory` は利用アプリの Gradle プロジェクトの場所に合わせてください。既存の Dependabot 設定があれば、その `updates` に統合し、同じ ecosystem/directory の設定を重複させないでください。既に他の依存も更新している場合、この `allow` で対象を SDK だけに絞らないよう既存の方針を維持してください。
+この公開 SDK の取得に、専用の PAT や Dependabot 用の認証情報は不要です。
 JitPack の版には公開日時がなく、Dependabot の標準の 3 日間の cooldown では更新候補から除外される場合があります。上の例は `cooldown.exclude` でこの SDK だけを待機対象から外します。既存設定へ統合するときは、他の依存向けの日数や例外を維持し、SDK の除外だけを追加してください。[cooldown の公式仕様](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown)も参照してください。
 SDK 配布元に設定するだけでは利用アプリに更新 PR は届きません。利用アプリの Gradle に JitPack を設定してください。Dependabot は Maven メタデータ以外のバージョン一覧も調べるため、メタデータ未反映・GitHub Release 未公開のタグが候補になる場合があります。PR の作成時期はチェックのスケジュールにも従います。自動マージは設定せず、Release の変更内容を読み、対象版が配布済みであることを確認してから更新してください。
 
