@@ -52,10 +52,12 @@ def resolve_tag(tag):
     return git("rev-parse", "FETCH_HEAD^{commit}").decode().strip()
 
 
-def assert_no_release(tag):
+def list_releases(tag):
     releases = []
     # The tag endpoint only finds published releases. The publish job repeats
     # this paginated lookup with contents:write so drafts are visible too.
+    # A draft for the tag needs a manual review and is never edited. A published
+    # release for the tag is reported so a re-run can check the path and leave it unchanged.
     for page in range(1, 101):
         request = urllib.request.Request(
             f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=100&page={page}",
@@ -70,12 +72,15 @@ def assert_no_release(tag):
                     or not entry["tag_name"] or type(entry.get("draft")) is not bool
                     or type(entry.get("prerelease")) is not bool):
                 raise ValueError("Unexpected GitHub release fields")
-            if entry["tag_name"] == tag:
-                raise ValueError("A release already exists for this tag; it will not be edited")
         releases.extend(entries)
         if len(entries) < 100:
-            return releases
-    raise ValueError("GitHub release pagination exceeded the safety limit")
+            break
+    else:
+        raise ValueError("GitHub release pagination exceeded the safety limit")
+    matching = [entry for entry in releases if entry["tag_name"] == tag]
+    if any(entry["draft"] for entry in matching):
+        raise ValueError("A draft release exists for this tag; review it manually, it will not be edited")
+    return releases, bool(matching)
 
 
 def is_latest(tag, releases):
@@ -192,11 +197,19 @@ def main():
     validate_tag(args.tag)
     if args.command != "verify-jitpack":
         notes = notes_path(args.tag)
-        releases = assert_no_release(args.tag)
+        releases, published = list_releases(args.tag)
     commit = resolve_tag(args.tag)
     if args.command == "publish":
         if commit != args.expected_commit:
             raise ValueError("Remote tag changed after validation; refusing to publish")
+        if published:
+            # Running the workflow for a published tag checks the whole path without editing anything.
+            message = f"Release {args.tag} is already published; leaving it unchanged."
+            print(message)
+            if os.environ.get("GITHUB_STEP_SUMMARY"):
+                with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                    summary.write(message + "\n")
+            return
         subprocess.run([
             "gh", "release", "create", args.tag, "--repo", REPOSITORY,
             "--verify-tag", "--title", f"LEEEP Android SDK {args.tag}",
@@ -204,6 +217,8 @@ def main():
             "--notes-file", str(notes),
         ], check=True)
     else:
+        if args.command == "prepare" and published:
+            print(f"Release {args.tag} is already published; validating its distribution only", flush=True)
         verify_jitpack(args.tag, commit)
         if args.command == "prepare":
             if resolve_tag(args.tag) != commit:

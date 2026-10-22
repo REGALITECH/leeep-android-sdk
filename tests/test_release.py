@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.error
@@ -113,15 +114,16 @@ class ReleaseGatesTest(unittest.TestCase):
     def test_release_listing_paginates_and_rejects_a_draft_on_later_page(self):
         first_page = [{"tag_name": f"0.1.{i}", "draft": False, "prerelease": False} for i in range(100)]
         draft = {"tag_name": "0.10.0", "draft": True, "prerelease": False}
-        for second_page in ([], [draft]):
+        published = dict(draft, draft=False)
+        for second_page in ([], [published], [draft]):
             responses = [io.BytesIO(json.dumps(page).encode()) for page in (first_page, second_page)]
             with patch.dict(release.os.environ, {"GH_TOKEN": "test"}), \
                  patch.object(release.urllib.request, "urlopen", side_effect=responses) as lookup:
-                if second_page:
-                    with self.assertRaisesRegex(ValueError, "already exists"):
-                        release.assert_no_release("0.10.0")
+                if draft in second_page:
+                    with self.assertRaisesRegex(ValueError, "draft release exists"):
+                        release.list_releases("0.10.0")
                 else:
-                    self.assertEqual(release.assert_no_release("0.10.0"), first_page)
+                    self.assertEqual(release.list_releases("0.10.0"), (first_page + second_page, bool(second_page)))
                 self.assertEqual([call.args[0].full_url for call in lookup.call_args_list], [
                     f"https://api.github.com/repos/{release.REPOSITORY}/releases?per_page=100&page={page}"
                     for page in (1, 2)
@@ -153,9 +155,32 @@ class ReleaseGatesTest(unittest.TestCase):
              patch("sys.argv", ["release.py", "publish", "0.10.0", self.commit]), \
              patch.object(release.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(draft).encode())), \
              patch.object(release.subprocess, "run") as create:
-            with self.assertRaisesRegex(ValueError, "already exists"):
+            with self.assertRaisesRegex(ValueError, "draft release exists"):
                 release.main()
             create.assert_not_called()
+
+    def test_published_release_is_validated_again_and_left_unchanged(self):
+        published = [{"tag_name": "0.10.0", "draft": False, "prerelease": False}]
+        with tempfile.TemporaryDirectory() as directory:
+            output, summary = Path(directory, "output"), Path(directory, "summary")
+            with patch("sys.argv", ["release.py", "prepare", "0.10.0"]), \
+                 patch.object(release, "list_releases", return_value=(published, True)), \
+                 patch.object(release, "resolve_tag", return_value=self.commit), \
+                 patch.object(release, "verify_jitpack") as verify, \
+                 patch.dict(release.os.environ, {"GITHUB_OUTPUT": str(output)}), \
+                 patch("builtins.print"):
+                release.main()
+                verify.assert_called_once_with("0.10.0", self.commit)
+                self.assertEqual(output.read_text(), f"tag=0.10.0\ncommit={self.commit}\n")
+            with patch("sys.argv", ["release.py", "publish", "0.10.0", self.commit]), \
+                 patch.object(release, "list_releases", return_value=(published, True)), \
+                 patch.object(release, "resolve_tag", return_value=self.commit), \
+                 patch.object(release.subprocess, "run") as create, \
+                 patch.dict(release.os.environ, {"GITHUB_STEP_SUMMARY": str(summary)}), \
+                 patch("builtins.print"):
+                release.main()
+                create.assert_not_called()
+                self.assertEqual(summary.read_text(), "Release 0.10.0 is already published; leaving it unchanged.\n")
 
     def test_unavailable_jitpack_stops_after_bounded_wait(self):
         elapsed = [0]
@@ -202,7 +227,7 @@ class ReleaseGatesTest(unittest.TestCase):
 
     def test_moved_tag_never_reaches_release_creation(self):
         with patch("sys.argv", ["release.py", "publish", "0.10.0", "b" * 40]), \
-             patch.object(release, "assert_no_release", return_value=[]), \
+             patch.object(release, "list_releases", return_value=([], False)), \
              patch.object(release, "resolve_tag", return_value=self.commit), \
              patch.object(release.subprocess, "run") as create:
             with self.assertRaises(ValueError):
@@ -218,7 +243,7 @@ class ReleaseGatesTest(unittest.TestCase):
         for releases, latest in cases:
             with self.subTest(releases=releases), \
                  patch("sys.argv", ["release.py", "publish", "0.10.0", self.commit]), \
-                 patch.object(release, "assert_no_release", return_value=releases), \
+                 patch.object(release, "list_releases", return_value=(releases, False)), \
                  patch.object(release, "resolve_tag", return_value=self.commit), \
                  patch.object(release.subprocess, "run") as create:
                 release.main()
