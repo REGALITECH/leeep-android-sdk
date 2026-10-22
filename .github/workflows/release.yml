@@ -1,0 +1,64 @@
+name: Publish release
+
+on:
+  push:
+    tags: ['*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag (x.y.z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'REGALITECH/leeep-android-sdk' && (github.event_name == 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      commit: ${{ steps.check.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate notes, tag and JitPack distribution
+        id: check
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release.py prepare "$RELEASE_TAG"
+      - name: Build a release app with the tagged SDK from JitPack
+        env:
+          RELEASE_TAG: ${{ steps.check.outputs.tag }}
+        run: JAVA_HOME="$JAVA_HOME_17_X64" scripts/validate-consumer.sh "$RELEASE_TAG"
+
+  publish:
+    needs: validate
+    concurrency:
+      group: sdk-release-publish
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Create a new release without changing existing tags or releases
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release.py publish "$RELEASE_TAG" "$RELEASE_COMMIT"
