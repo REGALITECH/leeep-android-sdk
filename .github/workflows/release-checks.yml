@@ -18,3 +18,17 @@ jobs:
           persist-credentials: false
       - name: Test release gates without network access or publication
         run: python3 -m unittest discover -s tests -v
+
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Build the AAR under review into a release app before it is tagged and visible on JitPack.
+      - name: Build a release app with this checkout's SDK
+        run: JAVA_HOME="$JAVA_HOME_17_X64" scripts/validate-consumer.sh --local
+      # Exercise the JitPack path that Publish release uses, with a version JitPack has already built.
+      - name: Build a release app with a published SDK from JitPack
+        run: JAVA_HOME="$JAVA_HOME_17_X64" scripts/validate-consumer.sh 0.10.0

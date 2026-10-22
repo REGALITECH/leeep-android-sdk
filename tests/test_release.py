@@ -59,6 +59,19 @@ class ReleaseGatesTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.notes_path("0.10.0")
 
+    def test_every_release_note_passes_the_publish_gate(self):
+        notes = sorted(Path("releases").glob("*.md"))
+        self.assertTrue(notes)
+        for path in notes:
+            with self.subTest(path=path):
+                self.assertEqual(release.notes_path(path.stem), path)
+
+    def test_checked_in_aar_bundles_the_checked_in_licenses(self):
+        with zipfile.ZipFile("LeeepAndroidSdk.aar") as archive:
+            for name in ("LICENSE", "THIRD_PARTY_NOTICES.txt"):
+                with self.subTest(name=name):
+                    self.assertEqual(archive.read(f"assets/leeep/licenses/{name}"), Path(name).read_bytes())
+
     def test_distribution_requires_commit_coordinates_discovery_and_exact_binary(self):
         self.verify()
         failures = [
